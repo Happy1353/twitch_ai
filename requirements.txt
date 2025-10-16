@@ -1,0 +1,26 @@
+# Twitch Integration
+twitchio==2.9.1
+
+# OpenAI API
+openai==1.40.0
+
+# Audio Processing
+pygame==2.5.2
+pydub==0.25.1
+
+# Image/Video Processing
+opencv-python==4.9.0.80
+Pillow==10.3.0
+numpy==1.26.4
+
+# Web & Async
+aiohttp==3.9.5
+asyncio==3.4.3
+
+# Utils
+python-dotenv==1.0.1
+requests==2.31.0
+
+# Optional: For lip sync
+librosa==0.10.2
+

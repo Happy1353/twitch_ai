@@ -1,0 +1,25 @@
+[Unit]
+Description=Twitch AI Girl Streamer
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/twitch_girl
+Environment="PATH=/opt/twitch_girl/venv/bin"
+EnvironmentFile=/opt/twitch_girl/.env
+ExecStart=/opt/twitch_girl/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/twitch-girl/output.log
+StandardError=append:/var/log/twitch-girl/error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

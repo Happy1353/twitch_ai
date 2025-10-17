@@ -60,7 +60,7 @@ class AIBrain:
             
             # Get response from Groq (FREE!)
             response = await self.client.chat.completions.create(
-                model="llama-3.1-70b-versatile",  # Fast and free Groq model
+                model="llama-3.3-70b-versatile",  # NEW Groq model (updated Oct 2024)
                 messages=self.conversation_history[-self.max_history:],  # Use recent history
                 max_tokens=150,
                 temperature=0.9,  # More creative responses

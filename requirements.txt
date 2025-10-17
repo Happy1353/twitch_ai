@@ -19,6 +19,7 @@ numpy==1.26.4
 # Web & Async
 aiohttp==3.9.5
 asyncio==3.4.3
+websockets==12.0
 
 # Utils
 python-dotenv==1.0.1

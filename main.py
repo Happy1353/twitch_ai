@@ -1,16 +1,16 @@
 """
-Main application - Twitch AI Girl Streamer (macOS compatible with pygame)
+Main application - Twitch AI Girl Streamer (VRM Edition)
 """
 import asyncio
 import time
 import threading
-import pygame
 from datetime import datetime
 import config
 from twitch_chat import start_chat_bot
 from ai_brain import AIBrain
 from voice_engine import VoiceEngine
 from avatar_animator import AvatarAnimator
+from web_server import start_server
 
 
 class TwitchAIGirl:
@@ -32,10 +32,6 @@ class TwitchAIGirl:
         self.last_response_time = 0
         self.is_processing = False
         self.message_queue = asyncio.Queue()
-        
-        # Pygame
-        self.screen = None
-        self.clock = None
         
     async def process_message(self, username: str, message: str):
         """
@@ -68,12 +64,14 @@ class TwitchAIGirl:
             
             print(f"💭 Ответ: {response}")
             
+            # Start talking animation
+            await self.avatar.start_talking()
+            
             # Convert to speech and play
-            duration = await self.voice_engine.speak(
-                response,
-                on_start=self.avatar.start_talking,
-                on_end=self.avatar.stop_talking
-            )
+            duration = await self.voice_engine.speak(response)
+            
+            # Stop talking animation
+            await self.avatar.stop_talking()
             
             print(f"✓ Ответ воспроизведен ({duration:.1f}s)\n")
             
@@ -81,70 +79,55 @@ class TwitchAIGirl:
             
         except Exception as e:
             print(f"❌ Ошибка обработки сообщения: {e}")
+            await self.avatar.stop_talking()
         finally:
             self.is_processing = False
     
-    async def start_bot_async(self):
-        """Start Twitch bot in async thread"""
-        try:
-            print("💬 Подключение к Twitch чату...")
-            self.chat_bot = await start_chat_bot(self.process_message)
-            
-            print("\n" + "=" * 60)
-            print("✨ ВСЕ СИСТЕМЫ ЗАПУЩЕНЫ! ✨")
-            print("=" * 60)
-            print(f"Канал: {config.TWITCH_CHANNEL}")
-            print(f"Персонаж: {config.CHARACTER_NAME}")
-            print("=" * 60)
-            print("\nОжидание сообщений в чате...")
-            print("Нажмите ESC в окне аватара для выхода\n")
-            
-            await self.chat_bot.start()
-        except Exception as e:
-            print(f"❌ Ошибка бота: {e}")
-            self.avatar.running = False
-    
-    def start(self):
-        """Start the application (synchronous main loop with pygame)"""
+    async def start(self):
+        """Start the application"""
         print("\n🚀 Запуск приложения...\n")
         
         # Validate configuration
         if not self._validate_config():
             return
         
-        # Initialize pygame display
-        print("🎨 Инициализация окна...")
-        self.screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
-        pygame.display.set_caption(f"{config.CHARACTER_NAME} - Twitch Stream")
-        self.clock = pygame.time.Clock()
+        # Start HTTP server for VRM viewer (in separate thread)
+        print("🌐 Запуск HTTP сервера...")
+        http_thread = threading.Thread(target=start_server, daemon=True)
+        http_thread.start()
         
-        # Start avatar
-        self.avatar.start()
+        # Give HTTP server time to start
+        await asyncio.sleep(1)
         
-        # Start Twitch bot in separate thread
-        def run_bot():
-            asyncio.run(self.start_bot_async())
+        # Start avatar (WebSocket server + browser)
+        print("🎨 Запуск VRM аватара...")
+        avatar_task = asyncio.create_task(self.avatar.start())
         
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
+        # Give browser time to open
+        await asyncio.sleep(3)
         
-        # Give bot time to connect
-        time.sleep(2)
+        # Start chat bot
+        print("💬 Подключение к Twitch чату...")
+        self.chat_bot = await start_chat_bot(self.process_message)
         
-        # Main pygame loop (must run in main thread on macOS)
-        print("🎮 Запуск главного цикла...\n")
+        print("\n" + "=" * 60)
+        print("✨ ВСЕ СИСТЕМЫ ЗАПУЩЕНЫ! ✨")
+        print("=" * 60)
+        print(f"Канал: {config.TWITCH_CHANNEL}")
+        print(f"Персонаж: {config.CHARACTER_NAME}")
+        print("=" * 60)
+        print("\nОжидание сообщений в чате...")
+        print("Закройте браузер или нажмите Ctrl+C для выхода\n")
+        
+        # Run bot
         try:
-            while self.avatar.running:
-                if not self.avatar.update(self.screen, self.clock):
-                    break
+            await self.chat_bot.start()
         except KeyboardInterrupt:
             print("\n\n👋 Завершение работы...")
         except Exception as e:
             print(f"\n❌ Ошибка: {e}")
-            import traceback
-            traceback.print_exc()
         finally:
-            self.cleanup()
+            await self.cleanup()
     
     def _validate_config(self) -> bool:
         """Validate configuration"""
@@ -168,7 +151,7 @@ class TwitchAIGirl:
         
         return True
     
-    def cleanup(self):
+    async def cleanup(self):
         """Cleanup resources"""
         print("🧹 Очистка ресурсов...")
         
@@ -176,21 +159,19 @@ class TwitchAIGirl:
             self.voice_engine.stop()
         
         if self.avatar:
-            self.avatar.stop()
-        
-        pygame.quit()
+            await self.avatar.stop()
         
         print("✓ Завершено")
 
 
-def main():
+async def main():
     """Main entry point"""
     app = TwitchAIGirl()
-    app.start()
+    await app.start()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("\n👋 До свидания!")

@@ -100,7 +100,6 @@ class TwitchAIGirl:
         print("=" * 60)
         print(f"Канал: {config.TWITCH_CHANNEL}")
         print(f"Персонаж: {config.CHARACTER_NAME}")
-        print(f"Голос: {config.VOICE_MODEL}")
         print("=" * 60)
         print("\nОжидание сообщений в чате...")
         print("Нажмите ESC в окне аватара для выхода\n")

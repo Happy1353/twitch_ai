@@ -4,6 +4,7 @@ VRM Controller - WebSocket server for controlling VRM model animations
 import asyncio
 import websockets
 import json
+import base64
 from typing import Set, Optional
 
 
@@ -61,6 +62,29 @@ class VRMController:
         await self._broadcast({
             "action": "stop_talking"
         })
+    
+    async def play_audio(self, audio_file_path: str):
+        """
+        Send audio file to browser for playback
+        
+        Args:
+            audio_file_path: Path to audio file
+        """
+        try:
+            # Read audio file and encode to base64
+            with open(audio_file_path, 'rb') as f:
+                audio_data = f.read()
+                audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            await self._broadcast({
+                "action": "play_audio",
+                "audio": audio_base64
+            })
+            
+            print(f"✓ Аудио отправлено в браузер ({len(audio_data)} bytes)")
+            
+        except Exception as e:
+            print(f"❌ Ошибка отправки аудио: {e}")
     
     async def _broadcast(self, message: dict):
         """Broadcast message to all connected clients"""

@@ -64,14 +64,34 @@ class TwitchAIGirl:
             
             print(f"💭 Ответ: {response}")
             
+            # Generate audio file
+            audio_file = await self.voice_engine.text_to_speech(response)
+            
+            if not audio_file:
+                print("❌ Не удалось сгенерировать аудио")
+                return
+            
+            # Get audio duration
+            duration = await self.voice_engine.get_audio_duration(audio_file)
+            
             # Start talking animation
             await self.avatar.start_talking()
             
-            # Convert to speech and play
-            duration = await self.voice_engine.speak(response)
+            # Send audio to browser for playback
+            await self.avatar.vrm_controller.play_audio(audio_file)
+            
+            # Wait for audio to finish
+            await asyncio.sleep(duration)
             
             # Stop talking animation
             await self.avatar.stop_talking()
+            
+            # Clean up audio file
+            import os
+            try:
+                os.remove(audio_file)
+            except:
+                pass
             
             print(f"✓ Ответ воспроизведен ({duration:.1f}s)\n")
             

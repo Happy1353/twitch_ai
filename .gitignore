@@ -4,6 +4,10 @@ venv/
 env/
 ENV/
 
+# Test files (might contain secrets)
+test_*.py
+*.test.py
+
 # Python
 __pycache__/
 *.py[cod]

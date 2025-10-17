@@ -8,8 +8,8 @@ openai>=1.30.0
 gTTS==2.5.0
 
 # Audio Processing
-pygame==2.5.2
-pydub==0.25.1
+mutagen==1.47.0  # For audio duration detection
+pydub==0.25.1    # For audio post-processing
 
 # Image/Video Processing
 opencv-python==4.9.0.80

@@ -12,7 +12,11 @@ class AIBrain:
     
     def __init__(self):
         """Initialize AI brain"""
-        self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+        # Use Groq API (OpenAI-compatible, FREE!)
+        self.client = AsyncOpenAI(
+            api_key=config.OPENAI_API_KEY,  # Will use Groq key
+            base_url="https://api.groq.com/openai/v1"
+        )
         self.conversation_history: List[Dict[str, str]] = []
         self.max_history = 10  # Keep last 10 messages for context
         
@@ -54,9 +58,9 @@ class AIBrain:
                 "content": user_message
             })
             
-            # Get response from ChatGPT
+            # Get response from Groq (FREE!)
             response = await self.client.chat.completions.create(
-                model="gpt-4",
+                model="llama-3.1-70b-versatile",  # Fast and free Groq model
                 messages=self.conversation_history[-self.max_history:],  # Use recent history
                 max_tokens=150,
                 temperature=0.9,  # More creative responses

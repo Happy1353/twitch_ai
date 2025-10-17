@@ -1,8 +1,11 @@
 # Twitch Integration
 twitchio==2.9.1
 
-# OpenAI API
-openai==1.40.0
+# AI API (Groq/DeepSeek uses OpenAI-compatible API)
+openai>=1.30.0
+
+# Text-to-Speech (Free Google TTS)
+gTTS==2.5.0
 
 # Audio Processing
 pygame==2.5.2

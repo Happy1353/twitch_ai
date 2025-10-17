@@ -4,7 +4,7 @@ Voice Engine - Text-to-Speech module
 import asyncio
 import os
 from pathlib import Path
-from openai import AsyncOpenAI
+from gtts import gTTS
 import pygame
 import config
 from typing import Callable, Optional
@@ -15,7 +15,7 @@ class VoiceEngine:
     
     def __init__(self):
         """Initialize voice engine"""
-        self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+        # Using gTTS (Google Text-to-Speech) - Free alternative
         
         # Initialize pygame mixer for audio playback
         pygame.mixer.init()
@@ -44,16 +44,13 @@ class VoiceEngine:
             
             print(f"🎤 Генерация речи: {text[:50]}...")
             
-            # Generate speech using OpenAI TTS
-            response = await self.client.audio.speech.create(
-                model="tts-1",
-                voice=config.VOICE_MODEL,  # alloy, echo, fable, onyx, nova, shimmer
-                input=text,
-                speed=1.0
+            # Generate speech using Google TTS (free alternative)
+            # Run in executor to avoid blocking
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: gTTS(text=text, lang='ru', slow=False).save(filename)
             )
-            
-            # Save to file
-            response.stream_to_file(filename)
             
             print(f"✓ Аудио сохранено: {filename}")
             

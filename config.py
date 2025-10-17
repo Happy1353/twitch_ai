@@ -12,8 +12,8 @@ TWITCH_CLIENT_ID = os.getenv('TWITCH_CLIENT_ID', '')
 TWITCH_CHANNEL = os.getenv('TWITCH_CHANNEL', '')
 TWITCH_BOT_NAME = os.getenv('TWITCH_BOT_NAME', '')
 
-# OpenAI Settings
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+# AI Settings (supports Groq, DeepSeek, OpenAI, or any OpenAI-compatible API)
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')  # Can be Groq key (FREE!), DeepSeek key, or OpenAI key
 
 # Character Settings
 CHARACTER_NAME = os.getenv('CHARACTER_NAME', 'Лиза')
@@ -24,7 +24,8 @@ CHARACTER_PERSONALITY = os.getenv(
 
 # Audio Settings
 AUDIO_OUTPUT_DIR = 'output/audio'
-VOICE_MODEL = 'alloy'  # OpenAI TTS voices: alloy, echo, fable, onyx, nova, shimmer
+# Note: Using gTTS (Google TTS) for voice generation - free alternative
+# Voice customization is limited with gTTS, but it's free and works well
 
 # Avatar Settings
 AVATAR_IMAGE_PATH = 'assets/avatar_idle.png'

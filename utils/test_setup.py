@@ -57,8 +57,8 @@ def test_configuration():
     # Check character configuration
     print("\n👧 Character Configuration:")
     print(f"  ✓ CHARACTER_NAME: {config.CHARACTER_NAME}")
-    print(f"  ✓ VOICE_MODEL: {config.VOICE_MODEL}")
     print(f"  ✓ PERSONALITY: {config.CHARACTER_PERSONALITY[:50]}...")
+    print(f"  ✓ TTS: Google TTS (gTTS) - Free")
     
     # Check directories
     print("\n📁 Directories:")
@@ -117,6 +117,13 @@ def test_configuration():
     except ImportError:
         errors.append("opencv-python не установлен")
         print("  ❌ opencv-python не установлен")
+    
+    try:
+        import gtts
+        print(f"  ✓ gTTS (Google Text-to-Speech)")
+    except ImportError:
+        errors.append("gTTS не установлен")
+        print("  ❌ gTTS не установлен")
     
     # Summary
     print("\n" + "=" * 60)

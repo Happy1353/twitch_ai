@@ -1,17 +1,18 @@
 """
-Avatar Animator - Handles avatar display and lip sync animation
+Avatar Animator - Handles avatar display and lip sync animation (pygame version for macOS)
 """
-import cv2
+import pygame
 import numpy as np
-import threading
+import cv2
 import time
 from pathlib import Path
 from typing import Optional
+from PIL import Image
 import config
 
 
 class AvatarAnimator:
-    """Animates avatar with lip sync"""
+    """Animates avatar with lip sync using pygame"""
     
     def __init__(self):
         """Initialize avatar animator"""
@@ -20,39 +21,55 @@ class AvatarAnimator:
         # Animation state
         self.is_talking = False
         self.mouth_open = False
-        self.animation_thread: Optional[threading.Thread] = None
         self.running = False
         
         # Load avatar images
-        self.idle_image: Optional[np.ndarray] = None
-        self.talking_image: Optional[np.ndarray] = None
-        self.current_frame: Optional[np.ndarray] = None
+        self.idle_surface: Optional[pygame.Surface] = None
+        self.talking_surface: Optional[pygame.Surface] = None
         
         # Create assets directory
         Path("assets").mkdir(exist_ok=True)
         
-        # Try to load images
-        self._load_images()
+        # Initialize pygame
+        pygame.init()
         
-        # If images don't exist, create placeholder
-        if self.idle_image is None:
+        # Try to load images (using OpenCV for creation, pygame for display)
+        self._load_or_create_images()
+        
+    def _load_or_create_images(self):
+        """Load avatar images or create placeholders"""
+        # Check if images exist
+        if not Path(config.AVATAR_IMAGE_PATH).exists() or not Path(config.AVATAR_MOUTH_OPEN_PATH).exists():
             self._create_placeholder_images()
-    
-    def _load_images(self):
-        """Load avatar images from disk"""
+        
+        # Load images with PIL (better format support)
         try:
             if Path(config.AVATAR_IMAGE_PATH).exists():
-                self.idle_image = cv2.imread(config.AVATAR_IMAGE_PATH)
+                img = Image.open(config.AVATAR_IMAGE_PATH)
+                img = img.convert('RGB')
+                img = img.resize((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
+                self.idle_surface = self._pil_to_pygame(img)
                 print(f"✓ Загружено изображение: {config.AVATAR_IMAGE_PATH}")
         except Exception as e:
             print(f"⚠ Не удалось загрузить idle image: {e}")
         
         try:
             if Path(config.AVATAR_MOUTH_OPEN_PATH).exists():
-                self.talking_image = cv2.imread(config.AVATAR_MOUTH_OPEN_PATH)
+                img = Image.open(config.AVATAR_MOUTH_OPEN_PATH)
+                img = img.convert('RGB')
+                img = img.resize((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
+                self.talking_surface = self._pil_to_pygame(img)
                 print(f"✓ Загружено изображение: {config.AVATAR_MOUTH_OPEN_PATH}")
         except Exception as e:
             print(f"⚠ Не удалось загрузить talking image: {e}")
+    
+    def _pil_to_pygame(self, pil_image):
+        """Convert PIL image to pygame surface"""
+        mode = pil_image.mode
+        size = pil_image.size
+        data = pil_image.tobytes()
+        
+        return pygame.image.fromstring(data, size, mode)
     
     def _create_placeholder_images(self):
         """Create placeholder avatar images with attractive anime-style girl"""
@@ -129,8 +146,6 @@ class AvatarAnimator:
         sub_x = (width - sub_size[0]) // 2
         cv2.putText(idle_img, subtitle, (sub_x, height - 50), font, 1, (200, 200, 255), 2)
         
-        self.idle_image = idle_img
-        
         # Talking image - same but with open mouth
         talking_img = idle_img.copy()
         
@@ -141,72 +156,77 @@ class AvatarAnimator:
         # Tongue (optional, makes it more expressive)
         cv2.ellipse(talking_img, (center_x, mouth_y + 15), (15, 10), 0, 0, 180, (150, 100, 180), -1)
         
-        self.talking_image = talking_img
-        
         # Save placeholder images
         cv2.imwrite(config.AVATAR_IMAGE_PATH, idle_img)
         cv2.imwrite(config.AVATAR_MOUTH_OPEN_PATH, talking_img)
         
         print(f"✓ Placeholder изображения созданы")
+        
+        # Convert to pygame surfaces
+        idle_img_rgb = cv2.cvtColor(idle_img, cv2.COLOR_BGR2RGB)
+        talking_img_rgb = cv2.cvtColor(talking_img, cv2.COLOR_BGR2RGB)
+        
+        self.idle_surface = pygame.surfarray.make_surface(np.transpose(idle_img_rgb, (1, 0, 2)))
+        self.talking_surface = pygame.surfarray.make_surface(np.transpose(talking_img_rgb, (1, 0, 2)))
     
     def start(self):
-        """Start avatar display"""
+        """Start avatar display (must be called from main thread)"""
         self.running = True
-        self.animation_thread = threading.Thread(target=self._animation_loop, daemon=True)
-        self.animation_thread.start()
-        print(f"✓ Аватар запущен: {self.window_name}")
+        print(f"✓ Аватар готов к запуску: {self.window_name}")
     
     def stop(self):
         """Stop avatar display"""
         self.running = False
-        if self.animation_thread:
-            self.animation_thread.join(timeout=1)
-        cv2.destroyAllWindows()
+        pygame.quit()
     
-    def _animation_loop(self):
-        """Main animation loop"""
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
+    def update(self, screen, clock):
+        """
+        Update and draw avatar (call this from main loop)
         
-        mouth_toggle_time = 0
-        mouth_toggle_interval = 0.15  # Toggle mouth every 150ms when talking
-        
-        while self.running:
-            current_time = time.time()
-            
-            # Select appropriate frame
-            if self.is_talking:
-                # Animate mouth opening/closing
-                if current_time - mouth_toggle_time > mouth_toggle_interval:
-                    self.mouth_open = not self.mouth_open
-                    mouth_toggle_time = current_time
-                
-                frame = self.talking_image if self.mouth_open else self.idle_image
-            else:
-                frame = self.idle_image
-            
-            # Display frame
-            if frame is not None:
-                # Add status indicator
-                display_frame = frame.copy()
-                
-                # Add talking indicator
-                if self.is_talking:
-                    cv2.circle(display_frame, (50, 50), 20, (0, 255, 0), -1)
-                    cv2.putText(display_frame, "ГОВОРИТ", (80, 60), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                else:
-                    cv2.circle(display_frame, (50, 50), 20, (100, 100, 100), -1)
-                    cv2.putText(display_frame, "СЛУШАЕТ", (80, 60), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
-                
-                cv2.imshow(self.window_name, display_frame)
-            
-            # Handle key press (ESC to quit)
-            key = cv2.waitKey(int(1000 / config.FRAME_RATE)) & 0xFF
-            if key == 27:  # ESC
+        Args:
+            screen: pygame display surface
+            clock: pygame clock for FPS control
+        """
+        # Handle pygame events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
                 self.running = False
-                break
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+                    return False
+        
+        # Select appropriate frame
+        if self.is_talking:
+            # Animate mouth opening/closing
+            frame_time = time.time() % 0.3  # Toggle every 300ms
+            if frame_time < 0.15:
+                current_surface = self.talking_surface
+            else:
+                current_surface = self.idle_surface
+        else:
+            current_surface = self.idle_surface
+        
+        # Draw frame
+        if current_surface is not None:
+            screen.blit(current_surface, (0, 0))
+            
+            # Draw status indicator
+            font = pygame.font.SysFont('Arial', 24, bold=True)
+            if self.is_talking:
+                pygame.draw.circle(screen, (0, 255, 0), (50, 50), 20)
+                text = font.render("ГОВОРИТ", True, (0, 255, 0))
+                screen.blit(text, (80, 35))
+            else:
+                pygame.draw.circle(screen, (100, 100, 100), (50, 50), 20)
+                text = font.render("СЛУШАЕТ", True, (150, 150, 150))
+                screen.blit(text, (80, 35))
+        
+        pygame.display.flip()
+        clock.tick(config.FRAME_RATE)
+        
+        return True
     
     def start_talking(self):
         """Start talking animation"""
@@ -218,4 +238,3 @@ class AvatarAnimator:
         self.is_talking = False
         self.mouth_open = False
         print("🤐 Конец речи")
-

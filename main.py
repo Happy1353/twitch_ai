@@ -1,8 +1,10 @@
 """
-Main application - Twitch AI Girl Streamer
+Main application - Twitch AI Girl Streamer (macOS compatible with pygame)
 """
 import asyncio
 import time
+import threading
+import pygame
 from datetime import datetime
 import config
 from twitch_chat import start_chat_bot
@@ -30,6 +32,10 @@ class TwitchAIGirl:
         self.last_response_time = 0
         self.is_processing = False
         self.message_queue = asyncio.Queue()
+        
+        # Pygame
+        self.screen = None
+        self.clock = None
         
     async def process_message(self, username: str, message: str):
         """
@@ -78,39 +84,65 @@ class TwitchAIGirl:
         finally:
             self.is_processing = False
     
-    async def start(self):
-        """Start the application"""
+    async def start_bot_async(self):
+        """Start Twitch bot in async thread"""
+        try:
+            print("💬 Подключение к Twitch чату...")
+            self.chat_bot = await start_chat_bot(self.process_message)
+            
+            print("\n" + "=" * 60)
+            print("✨ ВСЕ СИСТЕМЫ ЗАПУЩЕНЫ! ✨")
+            print("=" * 60)
+            print(f"Канал: {config.TWITCH_CHANNEL}")
+            print(f"Персонаж: {config.CHARACTER_NAME}")
+            print("=" * 60)
+            print("\nОжидание сообщений в чате...")
+            print("Нажмите ESC в окне аватара для выхода\n")
+            
+            await self.chat_bot.start()
+        except Exception as e:
+            print(f"❌ Ошибка бота: {e}")
+            self.avatar.running = False
+    
+    def start(self):
+        """Start the application (synchronous main loop with pygame)"""
         print("\n🚀 Запуск приложения...\n")
         
         # Validate configuration
         if not self._validate_config():
             return
         
+        # Initialize pygame display
+        print("🎨 Инициализация окна...")
+        self.screen = pygame.display.set_mode((config.WINDOW_WIDTH, config.WINDOW_HEIGHT))
+        pygame.display.set_caption(f"{config.CHARACTER_NAME} - Twitch Stream")
+        self.clock = pygame.time.Clock()
+        
         # Start avatar
-        print("🎨 Запуск аватара...")
         self.avatar.start()
-        await asyncio.sleep(1)  # Give time for window to open
         
-        # Start chat bot
-        print("💬 Подключение к Twitch чату...")
-        self.chat_bot = await start_chat_bot(self.process_message)
+        # Start Twitch bot in separate thread
+        def run_bot():
+            asyncio.run(self.start_bot_async())
         
-        print("\n" + "=" * 60)
-        print("✨ ВСЕ СИСТЕМЫ ЗАПУЩЕНЫ! ✨")
-        print("=" * 60)
-        print(f"Канал: {config.TWITCH_CHANNEL}")
-        print(f"Персонаж: {config.CHARACTER_NAME}")
-        print("=" * 60)
-        print("\nОжидание сообщений в чате...")
-        print("Нажмите ESC в окне аватара для выхода\n")
+        bot_thread = threading.Thread(target=run_bot, daemon=True)
+        bot_thread.start()
         
-        # Run bot
+        # Give bot time to connect
+        time.sleep(2)
+        
+        # Main pygame loop (must run in main thread on macOS)
+        print("🎮 Запуск главного цикла...\n")
         try:
-            await self.chat_bot.start()
+            while self.avatar.running:
+                if not self.avatar.update(self.screen, self.clock):
+                    break
         except KeyboardInterrupt:
             print("\n\n👋 Завершение работы...")
         except Exception as e:
             print(f"\n❌ Ошибка: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             self.cleanup()
     
@@ -123,7 +155,7 @@ class TwitchAIGirl:
         if not config.TWITCH_CHANNEL:
             errors.append("TWITCH_CHANNEL не установлен")
         if not config.OPENAI_API_KEY:
-            errors.append("OPENAI_API_KEY не установлен")
+            errors.append("OPENAI_API_KEY не установлен (Groq ключ)")
         
         if errors:
             print("❌ ОШИБКИ КОНФИГУРАЦИИ:")
@@ -131,6 +163,7 @@ class TwitchAIGirl:
                 print(f"  - {error}")
             print("\n⚠ Пожалуйста, настройте файл .env")
             print("Скопируйте .env.example в .env и заполните необходимые параметры")
+            print("📖 См. SETUP_GROQ.md для инструкций")
             return False
         
         return True
@@ -145,18 +178,19 @@ class TwitchAIGirl:
         if self.avatar:
             self.avatar.stop()
         
+        pygame.quit()
+        
         print("✓ Завершено")
 
 
-async def main():
+def main():
     """Main entry point"""
     app = TwitchAIGirl()
-    await app.start()
+    app.start()
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         print("\n👋 До свидания!")
-

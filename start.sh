@@ -33,16 +33,35 @@ fi
 echo "🔍 Testing configuration..."
 python utils/test_setup.py
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "🚀 Starting Twitch AI Girl..."
-    echo "Press Ctrl+C to stop"
-    echo ""
-    python main.py
-else
+if [ $? -ne 0 ]; then
     echo ""
     echo "❌ Configuration test failed"
     echo "Please fix the errors above before starting"
     exit 1
 fi
 
+# Launch mode selection
+echo ""
+echo "🎮 Выберите режим запуска:"
+echo "1) 🚀 Стандартный режим (бот + аватар)"
+echo "2) 🤖 Только бот (без аватара)"
+echo ""
+
+read -p "Введите номер режима (1-2): " choice
+
+case $choice in
+    1)
+        echo ""
+        echo "🚀 Запуск в стандартном режиме..."
+        echo "Press Ctrl+C to stop"
+        echo ""
+        python main.py --mode full
+        ;;
+    2)
+        echo ""
+        echo "🤖 Запуск без бота"
+        echo "Press Ctrl+C to stop"
+        echo ""
+        python main.py --mode no_bot
+        ;;
+esac

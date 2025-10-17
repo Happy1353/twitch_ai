@@ -6,22 +6,25 @@ import time
 import threading
 from datetime import datetime
 import config
+from utils.mok_chat import start_mok_bot
 from twitch_chat import start_chat_bot
 from ai_brain import AIBrain
 from voice_engine import VoiceEngine
 from avatar_animator import AvatarAnimator
 from web_server import start_server
-
+import sys
 
 class TwitchAIGirl:
     """Main application class"""
     
-    def __init__(self):
+    def __init__(self, mode):
         """Initialize application"""
         print("=" * 60)
         print(f"🎀 Twitch AI Girl - {config.CHARACTER_NAME}")
         print("=" * 60)
-        
+        # Mode 
+        self.mode = mode
+
         # Initialize components
         self.ai_brain = AIBrain()
         self.voice_engine = VoiceEngine()
@@ -125,10 +128,13 @@ class TwitchAIGirl:
         
         # Give browser time to open
         await asyncio.sleep(3)
-        
         # Start chat bot
-        print("💬 Подключение к Twitch чату...")
-        self.chat_bot = await start_chat_bot(self.process_message)
+        if self.mode == 'no_bot':
+            print("Подключение к файлу...")
+            self.chat_bot = await start_mok_bot(self.process_message)
+        else:
+            print("💬 Подключение к Twitch чату...")
+            self.chat_bot = await start_chat_bot(self.process_message)
         
         print("\n" + "=" * 60)
         print("✨ ВСЕ СИСТЕМЫ ЗАПУЩЕНЫ! ✨")
@@ -184,14 +190,15 @@ class TwitchAIGirl:
         print("✓ Завершено")
 
 
-async def main():
+async def main(mode):
     """Main entry point"""
-    app = TwitchAIGirl()
+    app = TwitchAIGirl(mode)
     await app.start()
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        mode = sys.argv[2] if len(sys.argv) > 2 else 'full'
+        asyncio.run(main(mode))
     except KeyboardInterrupt:
         print("\n👋 До свидания!")

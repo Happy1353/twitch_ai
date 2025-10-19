@@ -23,42 +23,6 @@
             display: block;
         }
         
-        #status {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 15px 25px;
-            border-radius: 10px;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        #status.talking {
-            background: rgba(0, 255, 0, 0.3);
-            border: 2px solid #00ff00;
-        }
-        
-        .indicator {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #666;
-        }
-        
-        .indicator.active {
-            background: #00ff00;
-            animation: pulse 1s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
         #loading {
             position: absolute;
             top: 50%;
@@ -72,10 +36,6 @@
 </head>
 <body>
     <canvas id="canvas"></canvas>
-    <div id="status">
-        <div class="indicator" id="indicator"></div>
-        <span id="statusText">Загрузка...</span>
-    </div>
     <div id="loading">Загрузка VRM модели...</div>
 
     <script type="importmap">
@@ -92,32 +52,33 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
         // Scene setup
         const canvas = document.getElementById('canvas');
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x667eea);
         
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 1.3, 2);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1.2, 2); // POV like webcam on desk
         
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
         const controls = new OrbitControls(camera, canvas);
-        controls.target.set(0, 1.3, 0);
+        controls.target.set(0, 1.2, 0);
+        controls.minDistance = 1.0;
+        controls.maxDistance = 4.0;
+        controls.maxPolarAngle = Math.PI / 1.8;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
         controls.update();
-        
-        // Lighting
-        const light = new THREE.DirectionalLight(0xffffff, 2);
-        light.position.set(1, 1, 1).normalize();
-        scene.add(light);
-        
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-        scene.add(ambientLight);
         
         // VRM model
         let vrm = null;
@@ -130,20 +91,103 @@
         let nextBlinkTime = 3; // Blink every 3 seconds
         let handAnimationOffset = Math.random() * Math.PI * 2; // Random start for hands
         
+        // Scene loaded flag
+        let roomLoaded = false;
+        
+        // Load bedroom scene first
+        console.log('🏠 Загрузка комнаты...');
+        const gltfLoader = new GLTFLoader();
+        
+        gltfLoader.load(
+            '/assets/bedroom_scene.glb',
+            (gltf) => {
+                console.log('✓ Комната загружена!');
+                
+                // Add room to scene with proper scale
+                gltf.scene.scale.set(0.015, 0.015, 0.015); // Reduce room size
+                gltf.scene.rotation.y =  - Math.PI / 2; // Rotate 90 degrees
+                
+                scene.add(gltf.scene);
+                
+                // Enable shadows for all meshes
+                gltf.scene.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        
+                        // Ensure materials render properly
+                        if (child.material) {
+                            child.material.needsUpdate = true;
+                        }
+                    }
+                });
+                
+                // Setup lighting after room is loaded
+                setupLighting();
+                
+                roomLoaded = true;
+                
+                // Now load VRM
+                loadVRM();
+            },
+            (progress) => {
+                const percent = (progress.loaded / progress.total * 100).toFixed(0);
+                console.log(`Загрузка комнаты: ${percent}%`);
+                document.getElementById('loading').textContent = `Загрузка комнаты ${percent}%...`;
+            },
+            (error) => {
+                console.error('❌ Ошибка загрузки комнаты:', error);
+                // Try to load VRM anyway
+                loadVRM();
+            }
+        );
+        
+        // Setup realistic lighting
+        function setupLighting() {
+            // Ambient light (soft fill)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            
+            // Main directional light (window/sun)
+            const sunLight = new THREE.DirectionalLight(0xfff8f0, 1.5);
+            sunLight.position.set(5, 6, 3);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 20;
+            sunLight.shadow.camera.left = -5;
+            sunLight.shadow.camera.right = 5;
+            sunLight.shadow.camera.top = 5;
+            sunLight.shadow.camera.bottom = -5;
+            scene.add(sunLight);
+            
+            // Fill light (opposite side)
+            const fillLight = new THREE.DirectionalLight(0xb8d4ff, 0.5);
+            fillLight.position.set(-3, 3, 2);
+            scene.add(fillLight);
+            
+            // Warm point light (for character)
+            const charLight = new THREE.PointLight(0xffeedd, 1.0, 5);
+            charLight.position.set(0, 1.5, 1);
+            scene.add(charLight);
+            
+            console.log('✓ Освещение настроено');
+        }
+        
         // Load VRM
-        const loader = new GLTFLoader();
-        loader.register((parser) => new VRMLoaderPlugin(parser));
+        const vrmLoader = new GLTFLoader();
+        vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
         
-        updateStatus('Загрузка VRM модели...', false);
+        function loadVRM() {
         
-        // Load VRM from HTTP server
-        const vrmPath = '/assets/ai_girl.vrm';
-        
-        console.log('Попытка загрузки VRM из:', vrmPath);
-        console.log('Полный URL:', window.location.origin + vrmPath);
-        
-        loader.load(
-            vrmPath,
+            console.log('👩 Загрузка VRM модели...');
+            document.getElementById('loading').textContent = 'Загрузка девушки...';
+            
+            const vrmPath = '/assets/ai_girl.vrm';
+            
+            vrmLoader.load(
+                vrmPath,
             (gltf) => {
                 console.log('✓ VRM загружена успешно!');
                 vrm = gltf.userData.vrm;
@@ -155,34 +199,28 @@
                 // Set initial natural pose for arms
                 setNaturalArmPose();
                 
+                // Position VRM in the scene
+                vrm.scene.position.set(0, 0, 0);
+                vrm.scene.rotation.y = 0; // Face forward
+                
+                // Scale VRM if needed (uncomment if still too small)
+                // vrm.scene.scale.set(1.2, 1.2, 1.2);
+                
                 document.getElementById('loading').style.display = 'none';
-                updateStatus('Готов к работе', false);
                 
                 console.log('VRM модель загружена!', vrm);
                 console.log('Доступные blendshapes:', vrm.expressionManager?.expressionMap || vrm.blendShapeProxy?.expressions);
             },
-            (progress) => {
-                const loaded = (progress.loaded / 1024 / 1024).toFixed(1);
-                const total = (progress.total / 1024 / 1024).toFixed(1);
-                const percent = (progress.loaded / progress.total) * 100;
-                updateStatus(`Загрузка ${percent.toFixed(0)}% (${loaded}/${total} MB)`, false);
-                console.log(`Прогресс: ${loaded}MB / ${total}MB`);
-            },
-            (error) => {
-                console.error('❌ Ошибка загрузки VRM:', error);
-                updateStatus('❌ Ошибка! Проверьте консоль (F12)', false);
-                
-                // Show detailed error
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,0,0,0.8);color:white;padding:20px;border-radius:10px;max-width:500px;';
-                errorDiv.innerHTML = `
-                    <h3>Ошибка загрузки VRM модели</h3>
-                    <p>${error.message || error}</p>
-                    <p><b>Откройте консоль (F12) для деталей</b></p>
-                `;
-                document.body.appendChild(errorDiv);
-            }
-        );
+                (progress) => {
+                    const percent = (progress.loaded / progress.total * 100).toFixed(0);
+                    console.log(`Загрузка VRM: ${percent}%`);
+                },
+                (error) => {
+                    console.error('❌ Ошибка загрузки VRM:', error);
+                    document.getElementById('loading').textContent = 'Ошибка загрузки VRM!';
+                }
+            );
+        }
         
         // Audio playback
         let currentAudio = null;
@@ -233,7 +271,6 @@
             
             ws.onopen = () => {
                 console.log('WebSocket подключен');
-                updateStatus('Подключено к серверу', false);
             };
             
             ws.onmessage = (event) => {
@@ -241,12 +278,12 @@
                 
                 if (data.action === 'start_talking') {
                     isTalking = true;
-                    updateStatus('Говорит...', true);
+                    console.log('👄 Начало речи');
                 } else if (data.action === 'stop_talking') {
                     isTalking = false;
                     mouthAnimation = 0;
-                    updateStatus('Слушает', false);
                     resetMouth();
+                    console.log('🤐 Конец речи');
                 } else if (data.action === 'play_audio') {
                     // Play audio received from server
                     console.log('🎵 Получено аудио, воспроизведение...');
@@ -265,21 +302,6 @@
         }
         
         connectWebSocket();
-        
-        // Update status
-        function updateStatus(text, talking) {
-            document.getElementById('statusText').textContent = text;
-            const indicator = document.getElementById('indicator');
-            const status = document.getElementById('status');
-            
-            if (talking) {
-                indicator.classList.add('active');
-                status.classList.add('talking');
-            } else {
-                indicator.classList.remove('active');
-                status.classList.remove('talking');
-            }
-        }
         
         // Animate mouth
         function animateMouth(delta) {

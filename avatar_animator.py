@@ -40,7 +40,7 @@ class AvatarAnimator:
         await self.vrm_controller.start()
         
         # Open browser with VRM viewer (using HTTP server)
-        viewer_url = "http://localhost:8080/web/vrm_viewer.html"
+        viewer_url = "http://localhost:3000/web/vrm_viewer.html"
         
         print(f"🌐 Открытие VRM viewer: {viewer_url}")
         print(f"⚠️ Если браузер не открылся, откройте вручную: {viewer_url}")

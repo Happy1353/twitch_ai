@@ -12,6 +12,7 @@ from ai_brain import AIBrain
 from voice_engine import VoiceEngine
 from avatar_animator import AvatarAnimator
 from web_server import start_server
+from utils.message_filter import MessageFilter
 import sys
 
 class TwitchAIGirl:
@@ -36,6 +37,8 @@ class TwitchAIGirl:
         self.is_processing = False
         self.message_queue = asyncio.Queue()
         
+        self.message_filter = MessageFilter()
+        
     async def process_message(self, username: str, message: str):
         """
         Process incoming chat message
@@ -54,7 +57,14 @@ class TwitchAIGirl:
         if self.is_processing:
             print(f"⏳ Уже обрабатываю сообщение, пропускаю: {username}")
             return
-        
+        print('start filter')
+        print(message)
+        # Filter msg
+        if self.message_filter.should_ignore_message(username, message):
+            print(f"Плохое сообщение，пропускаю: {username}")
+            return  
+        print('not filtered')
+
         self.is_processing = True
         
         try:

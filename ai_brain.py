@@ -5,7 +5,7 @@ import asyncio
 from openai import AsyncOpenAI
 import config
 from typing import List, Dict
-
+from data.db import AppDb, UserMessage
 
 class AIBrain:
     """Handles AI responses using OpenAI ChatGPT"""
@@ -39,6 +39,8 @@ class AIBrain:
             "content": self.system_prompt
         })
         
+        self.db = AppDb()
+
     async def get_response(self, username: str, message: str) -> str:
         """
         Get AI response for a message
@@ -51,12 +53,23 @@ class AIBrain:
             AI generated response
         """
         try:
+            last_messages = self.db.get_user_messages(username)
+            for msg in last_messages:
+                user_message = f"{username} спрашивает: {msg}"
+                self.conversation_history.append({
+                    "role": "user",
+                    "content": user_message
+                })
+                    
             # Add user message to history
             user_message = f"{username} спрашивает: {message}"
             self.conversation_history.append({
                 "role": "user",
                 "content": user_message
             })
+
+            # Save message to database 
+            self.db.add_message(UserMessage(username=username, text=message))
             
             # Get response from Groq (FREE!)
             response = await self.client.chat.completions.create(

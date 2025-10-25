@@ -13,6 +13,8 @@ from voice_engine import VoiceEngine
 from avatar_animator import AvatarAnimator
 from web_server import start_server
 import sys
+from utils.message_filter import MessageFilter
+from data.db import AppDb
 
 class TwitchAIGirl:
     """Main application class"""
@@ -36,6 +38,9 @@ class TwitchAIGirl:
         self.is_processing = False
         self.message_queue = asyncio.Queue()
         
+        # Filter 
+        self.message_filter = MessageFilter()
+
     async def process_message(self, username: str, message: str):
         """
         Process incoming chat message
@@ -46,7 +51,7 @@ class TwitchAIGirl:
         """
         # Check cooldown
         current_time = time.time()
-        if current_time - self.last_response_time < config.MESSAGE_COOLDOWN:
+        if self.mode != 'no_bot' and current_time - self.last_response_time < config.MESSAGE_COOLDOWN:
             print(f"⏳ Cooldown active, skipping message from {username}")
             return
         
@@ -55,6 +60,10 @@ class TwitchAIGirl:
             print(f"⏳ Уже обрабатываю сообщение, пропускаю: {username}")
             return
         
+        if self.message_filter.should_ignore_message(username, message):
+            print(f"Плохое сообщение，пропускаю: {username}")
+            return
+
         self.is_processing = True
         
         try:

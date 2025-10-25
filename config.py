@@ -3,8 +3,12 @@ Configuration module for Twitch AI Girl
 """
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
+
+# PATHS 
+PROJECT_ROOT = Path(__file__).parent
 
 # Twitch Settings
 TWITCH_TOKEN = os.getenv('TWITCH_TOKEN', '')
@@ -38,3 +42,4 @@ WINDOW_HEIGHT = 720
 MAX_RESPONSE_LENGTH = 200  # Maximum characters for response
 MESSAGE_COOLDOWN = 5  # Seconds between responses
 
+BANNED_WORDS_FILE = PROJECT_ROOT / 'res/banned_words.txt'
